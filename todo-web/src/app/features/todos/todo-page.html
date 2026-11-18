@@ -1,0 +1,51 @@
+<main class="page">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">YOUR DAY, IN ORDER</p>
+      <h1>Todos</h1>
+      <p class="subtitle">Keep track of what matters, one task at a time.</p>
+    </div>
+    <button type="button" class="add-button" (click)="add()">+ Add todo</button>
+  </header>
+
+  @if (error()) {
+    <div class="alert" role="alert">
+      <span>{{ error() }}</span>
+      <button type="button" (click)="error.set(null)" aria-label="Dismiss error">×</button>
+    </div>
+  }
+
+  @if (editorOpen()) {
+    <section class="editor-wrap" aria-label="Todo editor">
+      <app-todo-editor [item]="editing()" [busy]="saving()" (save)="save($event)" (cancel)="closeEditor()" />
+    </section>
+  }
+
+  <section aria-label="Todo list">
+    <div class="toolbar">
+      <div class="filters" role="group" aria-label="Filter todos">
+        <button type="button" [class.active]="filter() === 'all'" [attr.aria-pressed]="filter() === 'all'" (click)="setFilter('all')">All</button>
+        <button type="button" [class.active]="filter() === 'active'" [attr.aria-pressed]="filter() === 'active'" (click)="setFilter('active')">Active</button>
+        <button type="button" [class.active]="filter() === 'completed'" [attr.aria-pressed]="filter() === 'completed'" (click)="setFilter('completed')">Completed</button>
+      </div>
+      <button type="button" class="refresh" (click)="reload()" [disabled]="loading()">Refresh</button>
+    </div>
+
+    @if (loading()) {
+      <p class="state" role="status">Loading todos…</p>
+    } @else if (todos().length === 0) {
+      <div class="empty">
+        <h2>No todos here</h2>
+        <p>{{ filter() === 'all' ? 'Add your first todo to get started.' : 'Try another filter or add a new todo.' }}</p>
+      </div>
+    } @else {
+      <div class="list">
+        @for (item of todos(); track item.id) {
+          <app-todo-card [item]="item" [detail]="detail()?.id === item.id ? detail() : null"
+            [busy]="busyId() === item.id" [detailLoading]="detailLoadingId() === item.id"
+            (toggle)="toggle($event)" (view)="view($event)" (edit)="edit($event)" (remove)="remove($event)" />
+        }
+      </div>
+    }
+  </section>
+</main>

@@ -1,0 +1,23 @@
+.page { max-width: 840px; margin: 0 auto; padding: 3.5rem 1.25rem 5rem; }
+.hero { display: flex; justify-content: space-between; align-items: end; gap: 1.5rem; margin-bottom: 2rem; }
+.eyebrow { color: #24718a; letter-spacing: .14em; font-size: .72rem; font-weight: 800; margin: 0 0 .6rem; }
+h1 { font-size: clamp(2.4rem, 7vw, 4rem); line-height: 1; letter-spacing: -.05em; margin: 0; color: #173848; }
+.subtitle { color: #5b707b; margin: .8rem 0 0; }
+button { cursor: pointer; font: inherit; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.add-button { border: 0; background: #176b84; color: #fff; border-radius: .6rem; padding: .75rem 1.1rem; font-weight: 700; white-space: nowrap; }
+.add-button:hover { background: #11576e; }
+.alert { display: flex; justify-content: space-between; gap: 1rem; background: #fff0ef; border: 1px solid #e6b8b3; color: #8b2924; padding: .8rem 1rem; border-radius: .6rem; margin-bottom: 1rem; }
+.alert button { border: 0; color: inherit; background: transparent; font-size: 1.3rem; line-height: 1; }
+.editor-wrap { margin-bottom: 1.5rem; }
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: .8rem; margin-bottom: 1rem; }
+.filters { display: flex; gap: .25rem; background: #e7eef1; padding: .25rem; border-radius: .65rem; }
+.filters button { background: transparent; border: 0; color: #4c6571; padding: .5rem .85rem; border-radius: .45rem; }
+.filters button.active { background: #fff; color: #185d76; font-weight: 700; box-shadow: 0 1px 5px #132d3b19; }
+.refresh { color: #176b84; background: transparent; border: 0; padding: .45rem; }
+.list { display: grid; gap: .75rem; }
+.state, .empty { text-align: center; color: #58717d; padding: 3rem 1rem; }
+.empty { border: 1px dashed #bdcdd4; border-radius: .8rem; background: #fff; }
+.empty h2 { color: #23495a; margin: 0 0 .4rem; }
+.empty p { margin: 0; }
+@media (max-width: 560px) { .page { padding-top: 2rem; } .hero { align-items: start; flex-direction: column; } .add-button { width: 100%; } .toolbar { align-items: start; flex-direction: column; } }

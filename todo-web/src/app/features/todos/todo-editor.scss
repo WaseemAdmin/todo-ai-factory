@@ -1,0 +1,11 @@
+.editor { display: grid; gap: .65rem; padding: 1.5rem; background: #fff; border: 1px solid #dce3e8; border-radius: 1rem; box-shadow: 0 12px 30px #152c3a12; }
+h2 { margin: 0 0 .4rem; font-size: 1.25rem; }
+label { font-weight: 650; margin-top: .25rem; }
+label span { font-weight: 400; color: #607380; }
+input, textarea, select { width: 100%; box-sizing: border-box; padding: .7rem .8rem; font: inherit; color: inherit; background: #fff; border: 1px solid #aebec8; border-radius: .5rem; }
+input:focus, textarea:focus, select:focus { outline: 2px solid #256c8e; outline-offset: 1px; }
+.editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.editor-grid > div { display: grid; gap: .65rem; }
+.editor-actions { display: flex; justify-content: flex-end; gap: .6rem; margin-top: .6rem; }
+.field-error { margin: 0; color: #a72b2b; font-size: .9rem; }
+@media (max-width: 560px) { .editor-grid { grid-template-columns: 1fr; } }

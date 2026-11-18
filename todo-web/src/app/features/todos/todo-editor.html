@@ -1,0 +1,34 @@
+<form class="editor" [formGroup]="form" (ngSubmit)="submit()">
+  <h2>{{ item ? 'Edit todo' : 'Add a todo' }}</h2>
+  <label for="todo-title">Title</label>
+  <input id="todo-title" formControlName="title" autocomplete="off" required />
+  @if (form.controls.title.touched && form.controls.title.invalid) {
+    <p class="field-error">Enter a title of at most 200 characters after trimming spaces.</p>
+  }
+
+  <label for="todo-description">Description <span>(optional)</span></label>
+  <textarea id="todo-description" formControlName="description" maxlength="2000" rows="4"></textarea>
+  @if (form.controls.description.touched && form.controls.description.invalid) {
+    <p class="field-error">Description must be at most 2000 characters.</p>
+  }
+
+  <div class="editor-grid">
+    <div>
+      <label for="todo-priority">Priority</label>
+      <select id="todo-priority" formControlName="priority">
+        <option value="Low">Low</option>
+        <option value="Normal">Normal</option>
+        <option value="High">High</option>
+      </select>
+    </div>
+    <div>
+      <label for="todo-due">Due date <span>(optional)</span></label>
+      <input id="todo-due" type="datetime-local" formControlName="dueAtLocal" />
+    </div>
+  </div>
+
+  <div class="editor-actions">
+    <button type="button" class="secondary" (click)="cancel.emit()" [disabled]="busy">Cancel</button>
+    <button type="submit" [disabled]="busy">{{ busy ? 'Saving…' : (item ? 'Save changes' : 'Add todo') }}</button>
+  </div>
+</form>
