@@ -132,13 +132,13 @@ public sealed class SqlServerPersistenceTests
 
 public sealed class SqlServerApiFactory : WebApplicationFactory<Program>
 {
-    public SqlServerApiFactory() => Environment.SetEnvironmentVariable("ConnectionStrings__TodoDb", SqlServerPersistenceTests.Connection);
-
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+        builder.UseSetting("ConnectionStrings:TodoDb", SqlServerPersistenceTests.Connection);
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
+            ["ConnectionStrings:TodoDb"] = SqlServerPersistenceTests.Connection,
             ["AngularOrigin"] = "http://localhost:4200"
         }));
     }

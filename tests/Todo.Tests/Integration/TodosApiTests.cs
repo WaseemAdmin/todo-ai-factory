@@ -110,20 +110,26 @@ public sealed class TodosApiTests : IClassFixture<TodosApiFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("title", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void TestFactories_KeepIndependentConnectionConfiguration()
+    {
+        using var sqlFactory = new SqlServerApiFactory();
+        var fakeConnection = factory.Services.GetRequiredService<IConfiguration>().GetConnectionString("TodoDb");
+        var sqlConnection = sqlFactory.Services.GetRequiredService<IConfiguration>().GetConnectionString("TodoDb");
+        Assert.Equal("Server=localhost;Database=unused;Trusted_Connection=True", fakeConnection);
+        Assert.Equal(SqlServerPersistenceTests.Connection, sqlConnection);
+    }
 }
 
 public sealed class TodosApiFactory : WebApplicationFactory<Program>
 {
     public InMemoryTodoStore Store { get; } = new();
 
-    public TodosApiFactory()
-    {
-        Environment.SetEnvironmentVariable("ConnectionStrings__TodoDb", "Server=localhost;Database=unused;Trusted_Connection=True");
-    }
-
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+        builder.UseSetting("ConnectionStrings:TodoDb", "Server=localhost;Database=unused;Trusted_Connection=True");
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:TodoDb"] = "Server=localhost;Database=unused;Trusted_Connection=True",
