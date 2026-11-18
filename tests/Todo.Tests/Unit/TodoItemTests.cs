@@ -48,4 +48,31 @@ public sealed class TodoItemTests
     [Fact]
     public void Create_RejectsNonUtcDates() =>
         Assert.Throws<ArgumentException>(() => TodoItem.Create("valid", null, TodoPriority.Normal, null, DateTime.SpecifyKind(Now, DateTimeKind.Local)));
+
+    [Fact]
+    public void Cancel_IsTerminalIdempotentAndPreservesPriorFields()
+    {
+        var due = Now.AddDays(1);
+        var item = TodoItem.Create("keep me", "details", TodoPriority.High, due, Now);
+        item.Update(item.Title, item.Description, item.Priority, item.DueAtUtc, true, Now.AddMinutes(1));
+        var completedAt = item.CompletedAtUtc;
+        var cancelledAt = Now.AddMinutes(2);
+
+        item.Cancel(cancelledAt);
+        Assert.True(item.IsCancelled);
+        Assert.Equal(cancelledAt, item.CancelledAtUtc);
+        Assert.Equal(DateTimeKind.Utc, item.CancelledAtUtc!.Value.Kind);
+        Assert.Equal(cancelledAt, item.UpdatedAtUtc);
+        Assert.Equal("keep me", item.Title);
+        Assert.Equal("details", item.Description);
+        Assert.Equal(TodoPriority.High, item.Priority);
+        Assert.Equal(due, item.DueAtUtc);
+        Assert.True(item.IsCompleted);
+        Assert.Equal(completedAt, item.CompletedAtUtc);
+
+        item.Cancel(Now.AddMinutes(3));
+        Assert.Equal(cancelledAt, item.CancelledAtUtc);
+        Assert.Equal(cancelledAt, item.UpdatedAtUtc);
+        Assert.Throws<InvalidOperationException>(() => item.Update("changed", null, TodoPriority.Low, null, false, Now.AddMinutes(4)));
+    }
 }

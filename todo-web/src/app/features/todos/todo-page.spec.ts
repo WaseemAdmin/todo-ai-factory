@@ -5,15 +5,18 @@ import { TodoPage } from './todo-page';
 
 const initial: Todo = {
   id: 'one', title: 'First task', description: null, priority: 'Normal', dueAtUtc: null,
-  isCompleted: false, completedAtUtc: null, createdAtUtc: '2026-11-18T10:00:00Z', updatedAtUtc: '2026-11-18T10:00:00Z'
+  isCompleted: false, completedAtUtc: null, isCancelled: false, cancelledAtUtc: null,
+  createdAtUtc: '2026-11-18T10:00:00Z', updatedAtUtc: '2026-11-18T10:00:00Z'
 };
 
 class FakeApi {
   rows: Todo[] = [{ ...initial }];
   fail = false;
-  async list(isCompleted?: boolean): Promise<Todo[]> {
+  async list(isCompleted?: boolean, isCancelled?: boolean): Promise<Todo[]> {
     if (this.fail) throw new Error('offline');
-    return this.rows.filter(row => isCompleted === undefined || row.isCompleted === isCompleted);
+    return this.rows.filter(row => {
+      return row.isCancelled === (isCancelled === true) && (isCompleted === undefined || row.isCompleted === isCompleted);
+    });
   }
   async get(id: string): Promise<Todo> { return { ...this.rows.find(row => row.id === id)! }; }
   async create(request: TodoWrite): Promise<Todo> {
@@ -27,7 +30,11 @@ class FakeApi {
     row.completedAtUtc = request.isCompleted ? '2026-11-18T11:00:00Z' : null;
     return row;
   }
-  async delete(id: string): Promise<void> { this.rows = this.rows.filter(row => row.id !== id); }
+  async delete(id: string): Promise<void> {
+    const row = this.rows.find(value => value.id === id)!;
+    row.isCancelled = true;
+    row.cancelledAtUtc = '2026-11-18T12:00:00Z';
+  }
 }
 
 describe('TodoPage', () => {
@@ -93,13 +100,36 @@ describe('TodoPage', () => {
     expect(page.todos()[0].isCompleted).toBe(false);
   });
 
-  it('deletes only after confirmation', async () => {
+  it('cancels only after confirmation and leaves the row available in the Cancelled view', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    await page.remove(page.todos()[0]);
+    const cancelAction = () => Array.from(fixture.nativeElement.querySelectorAll('app-todo-card button') as NodeListOf<HTMLButtonElement>)
+      .find(button => button.textContent?.trim() === 'Cancel');
+    fixture.detectChanges();
+    expect(cancelAction()).toBeDefined();
+    expect(fixture.nativeElement.textContent).not.toContain('Delete');
+    cancelAction()!.click();
+    await fixture.whenStable();
     expect(page.todos()).toHaveLength(1);
     confirm.mockReturnValue(true);
-    await page.remove(page.todos()[0]);
+    cancelAction()!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
     expect(page.todos()).toHaveLength(0);
+    expect((api.rows[0] as Todo & { isCancelled: boolean }).isCancelled).toBe(true);
+    const cancelledButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find((button: HTMLButtonElement) => button.textContent?.trim() === 'Cancelled') as HTMLButtonElement | undefined;
+    expect(cancelledButton).toBeDefined();
+    cancelledButton!.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('First task');
+    expect(fixture.nativeElement.textContent).toContain('Cancelled');
+    const card = fixture.nativeElement.querySelector('app-todo-card') as HTMLElement;
+    expect(card.textContent).toContain('2026');
+    const actions = Array.from(card.querySelectorAll('button')).map(button => button.textContent?.trim());
+    expect(actions).not.toContain('Edit');
+    expect(actions).not.toContain('Cancel');
+    expect((card.querySelector('button[aria-label^="Complete"]') as HTMLButtonElement).disabled).toBe(true);
     confirm.mockRestore();
   });
 

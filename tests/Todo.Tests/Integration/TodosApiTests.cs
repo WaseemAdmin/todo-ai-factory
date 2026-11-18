@@ -26,7 +26,7 @@ public sealed class TodosApiTests : IClassFixture<TodosApiFactory>
     }
 
     [Fact]
-    public async Task CrudAndFiltering_UsesExpectedStatusCodesAndDeletesOnlyTarget()
+    public async Task CrudAndFiltering_UsesExpectedStatusCodesAndCancelsOnlyTarget()
     {
         var first = await client.PostAsJsonAsync("/api/todos", new { title = " first ", priority = "High" });
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
@@ -49,8 +49,57 @@ public sealed class TodosApiTests : IClassFixture<TodosApiFactory>
         var reopened = await reopen.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(JsonValueKind.Null, reopened.GetProperty("completedAtUtc").ValueKind);
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/todos/{firstTodo}")).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/todos/{firstTodo}")).StatusCode);
+        var cancelled = await client.GetFromJsonAsync<JsonElement>($"/api/todos/{firstTodo}");
+        Assert.True(cancelled.GetProperty("isCancelled").GetBoolean());
+        Assert.EndsWith("Z", cancelled.GetProperty("cancelledAtUtc").GetString());
+        var active = await client.GetFromJsonAsync<JsonElement>("/api/todos?isCompleted=false");
+        Assert.DoesNotContain(active.EnumerateArray(), row => row.GetProperty("id").GetGuid() == firstTodo);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/todos/{secondTodo}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_CancelsIdempotentlyPreservesFieldsAndFiltersFromActiveViews()
+    {
+        var due = "2026-12-01T12:00:00Z";
+        var create = await client.PostAsJsonAsync("/api/todos", new
+        {
+            title = "preserve me", description = "important", priority = "High", dueAtUtc = due
+        });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var id = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        var complete = await client.PutAsJsonAsync($"/api/todos/{id}", new
+        {
+            title = "preserve me", description = "important", priority = "High", dueAtUtc = due, isCompleted = true
+        });
+        Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
+        var completedAt = (await complete.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("completedAtUtc").GetString();
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/todos/{id}")).StatusCode);
+        var firstRead = await client.GetFromJsonAsync<JsonElement>($"/api/todos/{id}");
+        Assert.True(firstRead.GetProperty("isCancelled").GetBoolean());
+        var cancelledAt = firstRead.GetProperty("cancelledAtUtc").GetString();
+        Assert.EndsWith("Z", cancelledAt);
+        Assert.Equal("preserve me", firstRead.GetProperty("title").GetString());
+        Assert.Equal("important", firstRead.GetProperty("description").GetString());
+        Assert.Equal("High", firstRead.GetProperty("priority").GetString());
+        Assert.Equal(due, firstRead.GetProperty("dueAtUtc").GetString());
+        Assert.True(firstRead.GetProperty("isCompleted").GetBoolean());
+        Assert.Equal(completedAt, firstRead.GetProperty("completedAtUtc").GetString());
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/todos/{id}")).StatusCode);
+        var secondRead = await client.GetFromJsonAsync<JsonElement>($"/api/todos/{id}");
+        Assert.Equal(cancelledAt, secondRead.GetProperty("cancelledAtUtc").GetString());
+        Assert.Equal(firstRead.GetProperty("updatedAtUtc").GetString(), secondRead.GetProperty("updatedAtUtc").GetString());
+        foreach (var route in new[] { "/api/todos", "/api/todos?isCompleted=true", "/api/todos?isCancelled=false" })
+        {
+            var visible = await client.GetFromJsonAsync<JsonElement>(route);
+            Assert.DoesNotContain(visible.EnumerateArray(), row => row.GetProperty("id").GetGuid() == id);
+        }
+        var cancelledList = await client.GetFromJsonAsync<JsonElement>("/api/todos?isCancelled=true");
+        Assert.Contains(cancelledList.EnumerateArray(), row => row.GetProperty("id").GetGuid() == id);
+        var edit = await client.PutAsJsonAsync($"/api/todos/{id}", new { title = "changed", isCompleted = false });
+        Assert.Equal(HttpStatusCode.Conflict, edit.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/todos?isCancelled=true&isCompleted=true")).StatusCode);
     }
 
     [Theory]
@@ -76,6 +125,7 @@ public sealed class TodosApiTests : IClassFixture<TodosApiFactory>
         Assert.Equal(HttpStatusCode.NotFound, (await client.PutAsJsonAsync($"/api/todos/{id}", new { title = "valid", isCompleted = false })).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync($"/api/todos/{id}")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/todos?isCompleted=maybe")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/todos?isCancelled=maybe")).StatusCode);
     }
 
     [Fact]
@@ -147,11 +197,11 @@ public sealed class InMemoryTodoStore : ITodoItemStore
 {
     private readonly Dictionary<Guid, TodoItem> items = new();
     public void Clear() => items.Clear();
-    public Task<IReadOnlyList<TodoItem>> ListAsync(bool? isCompleted, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<TodoItem>>(items.Values.Where(x => isCompleted is null || x.IsCompleted == isCompleted)
+    public Task<IReadOnlyList<TodoItem>> ListAsync(bool? isCompleted, bool isCancelled, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<TodoItem>>(items.Values.Where(x => x.IsCancelled == isCancelled &&
+            (isCompleted is null || x.IsCompleted == isCompleted))
             .OrderByDescending(x => x.CreatedAtUtc).ThenBy(x => x.Id).ToArray());
     public Task<TodoItem?> GetAsync(Guid id, CancellationToken cancellationToken) => Task.FromResult(items.GetValueOrDefault(id));
     public Task AddAsync(TodoItem item, CancellationToken cancellationToken) { items.Add(item.Id, item); return Task.CompletedTask; }
-    public void Remove(TodoItem item) => items.Remove(item.Id);
     public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

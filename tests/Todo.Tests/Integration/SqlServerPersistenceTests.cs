@@ -17,7 +17,7 @@ public sealed class SqlServerPersistenceTests
     internal const string Connection = "Server=(localdb)\\MSSQLLocalDB;Database=BandTodoTestDb;Trusted_Connection=True;TrustServerCertificate=True";
 
     [Fact]
-    public async Task InitialMigrationAndCrud_PersistAcrossContextsWithUtcDates()
+    public async Task InitialMigrationAndUpdates_PersistAcrossContextsWithUtcDates()
     {
         var options = new DbContextOptionsBuilder<TodoDbContext>().UseSqlServer(Connection).Options;
         var now = new DateTime(2026, 11, 18, 10, 30, 0, DateTimeKind.Utc);
@@ -32,13 +32,19 @@ public sealed class SqlServerPersistenceTests
         await using (var sql = new SqlConnection(Connection))
         {
             await sql.OpenAsync();
-            await using var command = new SqlCommand("SELECT COUNT(*) FROM dbo.__EFMigrationsHistory WHERE MigrationId = '20261117225332_InitialCreate'; SELECT COUNT(*) FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.TodoItems') AND name='IX_TodoItems_IsCompleted_CreatedAtUtc';", sql);
+            await using var command = new SqlCommand("SELECT COUNT(*) FROM dbo.__EFMigrationsHistory WHERE MigrationId = '20261117225332_InitialCreate'; SELECT COUNT(*) FROM dbo.__EFMigrationsHistory; SELECT COUNT(*) FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.TodoItems') AND name='IX_TodoItems_IsCompleted_CreatedAtUtc'; SELECT COUNT(*) FROM sys.columns WHERE object_id=OBJECT_ID('dbo.TodoItems') AND name IN ('IsCancelled','CancelledAtUtc');", sql);
             await using var reader = await command.ExecuteReaderAsync();
             Assert.True(await reader.ReadAsync());
             Assert.Equal(1, reader.GetInt32(0));
             Assert.True(await reader.NextResultAsync());
             Assert.True(await reader.ReadAsync());
+            Assert.True(reader.GetInt32(0) >= 2, "InitialCreate and additive cancellation migrations must both be recorded.");
+            Assert.True(await reader.NextResultAsync());
+            Assert.True(await reader.ReadAsync());
             Assert.Equal(1, reader.GetInt32(0));
+            Assert.True(await reader.NextResultAsync());
+            Assert.True(await reader.ReadAsync());
+            Assert.Equal(2, reader.GetInt32(0));
         }
 
         try
@@ -67,20 +73,20 @@ public sealed class SqlServerPersistenceTests
                 Assert.Equal(DateTimeKind.Utc, loaded.CompletedAtUtc!.Value.Kind);
                 Assert.Equal(now.AddMinutes(1), loaded.UpdatedAtUtc);
                 loaded.Update(loaded.Title, null, loaded.Priority, null, false, now.AddMinutes(2));
-                db.TodoItems.Remove(loaded);
                 await db.SaveChangesAsync();
             }
 
             await using (var db = new TodoDbContext(options))
             {
-                Assert.Null(await db.TodoItems.SingleOrDefaultAsync(x => x.Id == first.Id));
+                Assert.NotNull(await db.TodoItems.SingleOrDefaultAsync(x => x.Id == first.Id));
                 Assert.NotNull(await db.TodoItems.SingleOrDefaultAsync(x => x.Id == second.Id));
             }
         }
         finally
         {
-            await using var cleanup = new TodoDbContext(options);
-            await cleanup.TodoItems.Where(x => x.Id == first.Id || x.Id == second.Id).ExecuteDeleteAsync();
+            await using var verify = new TodoDbContext(options);
+            Assert.NotNull(await verify.TodoItems.SingleOrDefaultAsync(x => x.Id == first.Id));
+            Assert.NotNull(await verify.TodoItems.SingleOrDefaultAsync(x => x.Id == second.Id));
         }
     }
 
@@ -119,13 +125,24 @@ public sealed class SqlServerPersistenceTests
             var reopen = await client.PutAsJsonAsync($"/api/todos/{firstId}", new { title = "QA API updated", isCompleted = false });
             Assert.Equal(JsonValueKind.Null, (await reopen.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("completedAtUtc").ValueKind);
             Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/todos/{firstId}")).StatusCode);
-            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/todos/{firstId}")).StatusCode);
+            var cancelled = await client.GetFromJsonAsync<JsonElement>($"/api/todos/{firstId}");
+            Assert.True(cancelled.GetProperty("isCancelled").GetBoolean());
+            Assert.EndsWith("Z", cancelled.GetProperty("cancelledAtUtc").GetString());
             Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/todos/{secondId}")).StatusCode);
+            await using var verify = new TodoDbContext(options);
+            var preserved = await verify.TodoItems.SingleOrDefaultAsync(row => row.Id == firstId);
+            Assert.NotNull(preserved);
+            Assert.True(preserved.IsCancelled);
+            Assert.Equal(DateTimeKind.Utc, preserved.CancelledAtUtc!.Value.Kind);
+            var other = await verify.TodoItems.SingleOrDefaultAsync(row => row.Id == secondId);
+            Assert.NotNull(other);
+            Assert.False(other.IsCancelled);
         }
         finally
         {
-            await using var cleanup = new TodoDbContext(options);
-            await cleanup.TodoItems.Where(row => row.Id == firstId || row.Id == secondId).ExecuteDeleteAsync();
+            await using var verify = new TodoDbContext(options);
+            if (firstId != Guid.Empty) Assert.NotNull(await verify.TodoItems.SingleOrDefaultAsync(row => row.Id == firstId));
+            if (secondId != Guid.Empty) Assert.NotNull(await verify.TodoItems.SingleOrDefaultAsync(row => row.Id == secondId));
         }
     }
 }
