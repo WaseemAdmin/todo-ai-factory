@@ -1,6 +1,6 @@
-<article class="card" [class.completed]="item.isCompleted">
+<article class="card" [class.completed]="item.isCompleted" [class.cancelled]="item.isCancelled">
   <div class="main">
-    <button class="completion" type="button" [disabled]="busy" (click)="toggle.emit(item)"
+    <button class="completion" type="button" [disabled]="busy || item.isCancelled" (click)="toggle.emit(item)"
       [attr.aria-label]="item.isCompleted ? 'Reopen ' + item.title : 'Complete ' + item.title"
       [attr.aria-pressed]="item.isCompleted">{{ item.isCompleted ? '✓' : '' }}</button>
     <div class="content">
@@ -8,7 +8,8 @@
       <div class="meta">
         <span class="priority" [class.high]="item.priority === 'High'">{{ item.priority }} priority</span>
         @if (item.dueAtUtc) { <span>Due {{ item.dueAtUtc | date:'mediumDate' }}</span> }
-        <span>{{ item.isCompleted ? 'Completed' : 'Active' }}</span>
+        <span>{{ item.isCancelled ? 'Cancelled' : item.isCompleted ? 'Completed' : 'Active' }}</span>
+        @if (item.cancelledAtUtc) { <span>Cancelled {{ item.cancelledAtUtc | date:'medium' }}</span> }
       </div>
     </div>
   </div>
@@ -16,14 +17,17 @@
     <button type="button" class="text-button" (click)="view.emit(item)" [disabled]="busy">
       {{ detail ? 'Hide details' : (detailLoading ? 'Loading…' : 'View') }}
     </button>
-    <button type="button" class="text-button" (click)="edit.emit(item)" [disabled]="busy">Edit</button>
-    <button type="button" class="text-button danger" (click)="remove.emit(item)" [disabled]="busy">Delete</button>
+    @if (!item.isCancelled) {
+      <button type="button" class="text-button" (click)="edit.emit(item)" [disabled]="busy">Edit</button>
+      <button type="button" class="text-button danger" (click)="remove.emit(item)" [disabled]="busy">Cancel</button>
+    }
   </div>
   @if (detail) {
     <div class="details">
       <p>{{ detail.description || 'No description.' }}</p>
       <p>Created {{ detail.createdAtUtc | date:'medium' }}</p>
       @if (detail.completedAtUtc) { <p>Completed {{ detail.completedAtUtc | date:'medium' }}</p> }
+      @if (detail.cancelledAtUtc) { <p>Cancelled {{ detail.cancelledAtUtc | date:'medium' }}</p> }
       @if (detail.dueAtUtc) { <p>Due {{ detail.dueAtUtc | date:'medium' }}</p> }
     </div>
   }

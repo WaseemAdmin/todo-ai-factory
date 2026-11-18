@@ -2,6 +2,8 @@
 .main { display: flex; align-items: flex-start; gap: .9rem; }
 .completion { flex: none; width: 1.6rem; height: 1.6rem; border: 2px solid #307a90; background: #fff; color: #fff; border-radius: .4rem; margin-top: .1rem; padding: 0; font-weight: 700; cursor: pointer; }
 .completed .completion { background: #307a90; }
+.cancelled { border-color: #d7c9c5; background: #faf8f7; }
+.cancelled .completion { border-color: #a9b4b8; cursor: not-allowed; }
 .content { min-width: 0; }
 h3 { margin: 0; overflow-wrap: anywhere; font-size: 1.08rem; }
 .completed h3 { text-decoration: line-through; color: #62737b; }

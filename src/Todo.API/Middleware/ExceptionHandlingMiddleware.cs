@@ -20,6 +20,15 @@ public sealed class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Ex
                 Status = 400, Title = "Validation failed"
             }, context.RequestAborted);
         }
+        catch (TodoConflictException exception)
+        {
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            context.Response.ContentType = "application/problem+json";
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Status = 409, Title = exception.Message
+            }, context.RequestAborted);
+        }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
         {
             // The client disconnected; no response can be delivered.

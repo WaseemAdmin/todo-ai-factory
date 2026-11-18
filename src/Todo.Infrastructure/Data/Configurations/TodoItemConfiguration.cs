@@ -22,8 +22,11 @@ public sealed class TodoItemConfiguration : IEntityTypeConfiguration<TodoItem>
         builder.Property(x => x.DueAtUtc).HasConversion(utcConverter).HasColumnType("datetime2");
         builder.Property(x => x.IsCompleted).HasColumnType("bit").HasDefaultValue(false).IsRequired();
         builder.Property(x => x.CompletedAtUtc).HasConversion(utcConverter).HasColumnType("datetime2");
+        builder.Property(x => x.IsCancelled).HasColumnType("bit").HasDefaultValue(false).IsRequired().IsConcurrencyToken();
+        builder.Property(x => x.CancelledAtUtc).HasConversion(utcConverter).HasColumnType("datetime2");
         builder.Property(x => x.CreatedAtUtc).HasConversion(utcConverter).HasColumnType("datetime2").IsRequired();
         builder.Property(x => x.UpdatedAtUtc).HasConversion(utcConverter).HasColumnType("datetime2").IsRequired();
         builder.HasIndex(x => new { x.IsCompleted, x.CreatedAtUtc });
+        builder.HasIndex(x => new { x.IsCancelled, x.CreatedAtUtc });
     }
 }

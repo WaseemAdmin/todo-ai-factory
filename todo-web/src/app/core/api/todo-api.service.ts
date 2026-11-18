@@ -9,8 +9,10 @@ export class TodoApiService {
   private readonly http = inject(HttpClient);
   private readonly url = `${environment.apiBaseUrl}/todos`;
 
-  list(isCompleted?: boolean): Promise<Todo[]> {
-    const params = isCompleted === undefined ? new HttpParams() : new HttpParams().set('isCompleted', isCompleted);
+  list(isCompleted?: boolean, isCancelled?: boolean): Promise<Todo[]> {
+    let params = new HttpParams();
+    if (isCompleted !== undefined) params = params.set('isCompleted', isCompleted);
+    if (isCancelled !== undefined) params = params.set('isCancelled', isCancelled);
     return firstValueFrom(this.http.get<Todo[]>(this.url, { params }));
   }
 

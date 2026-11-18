@@ -9,8 +9,8 @@ namespace Todo.API.Controllers;
 public sealed class TodosController(TodoService todoService) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<TodoResponse>>> List([FromQuery] bool? isCompleted, CancellationToken cancellationToken) =>
-        Ok(await todoService.ListAsync(isCompleted, cancellationToken));
+    public async Task<ActionResult<IReadOnlyList<TodoResponse>>> List([FromQuery] bool? isCompleted, [FromQuery] bool? isCancelled, CancellationToken cancellationToken) =>
+        Ok(await todoService.ListAsync(isCompleted, isCancelled, cancellationToken));
 
     [HttpGet("{id}")]
     public async Task<ActionResult<TodoResponse>> Get(Guid id, CancellationToken cancellationToken)
@@ -35,5 +35,5 @@ public sealed class TodosController(TodoService todoService) : ControllerBase
 
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
-        await todoService.DeleteAsync(id, cancellationToken) ? NoContent() : Problem(statusCode: 404, title: "Todo not found");
+        await todoService.CancelAsync(id, cancellationToken) ? NoContent() : Problem(statusCode: 404, title: "Todo not found");
 }

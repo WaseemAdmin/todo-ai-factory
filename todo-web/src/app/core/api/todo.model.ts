@@ -8,6 +8,8 @@ export interface Todo {
   dueAtUtc: string | null;
   isCompleted: boolean;
   completedAtUtc: string | null;
+  isCancelled: boolean;
+  cancelledAtUtc: string | null;
   createdAtUtc: string;
   updatedAtUtc: string;
 }

@@ -4,7 +4,7 @@ import { Todo, TodoWrite } from '../../core/api/todo.model';
 import { TodoCard } from './todo-card';
 import { TodoEditor } from './todo-editor';
 
-type Filter = 'all' | 'active' | 'completed';
+type Filter = 'all' | 'active' | 'completed' | 'cancelled';
 
 @Component({
   selector: 'app-todo-page',
@@ -35,7 +35,9 @@ export class TodoPage implements OnInit {
     this.error.set(null);
     const filter = this.filter();
     try {
-      const rows = await this.api.list(filter === 'all' ? undefined : filter === 'completed');
+      const rows = await this.api.list(
+        filter === 'active' ? false : filter === 'completed' ? true : undefined,
+        filter === 'cancelled' ? true : undefined);
       if (version === this.loadVersion) this.todos.set(rows);
     } catch (error) {
       if (version === this.loadVersion) this.error.set(apiErrorMessage(error));
@@ -58,6 +60,7 @@ export class TodoPage implements OnInit {
   }
 
   edit(item: Todo): void {
+    if (item.isCancelled) return;
     this.editing.set(item);
     this.editorOpen.set(true);
     this.error.set(null);
@@ -85,6 +88,7 @@ export class TodoPage implements OnInit {
   }
 
   async toggle(item: Todo): Promise<void> {
+    if (item.isCancelled) return;
     this.busyId.set(item.id);
     this.error.set(null);
     try {
@@ -118,7 +122,7 @@ export class TodoPage implements OnInit {
   }
 
   async remove(item: Todo): Promise<void> {
-    if (!window.confirm(`Delete “${item.title}”? This cannot be undone.`)) return;
+    if (item.isCancelled || !window.confirm(`Cancel “${item.title}”? This cannot be undone.`)) return;
     this.busyId.set(item.id);
     this.error.set(null);
     try {

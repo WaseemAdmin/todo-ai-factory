@@ -7,9 +7,13 @@ namespace Todo.Application.Services;
 
 public sealed class TodoService(ITodoItemStore store, TimeProvider timeProvider)
 {
-    public async Task<IReadOnlyList<TodoResponse>> ListAsync(bool? isCompleted, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<TodoResponse>> ListAsync(bool? isCompleted, bool? isCancelled, CancellationToken cancellationToken)
     {
-        var items = await store.ListAsync(isCompleted, cancellationToken);
+        if (isCancelled == true && isCompleted.HasValue)
+            throw new TodoValidationException(new Dictionary<string, string[]> {
+                ["isCompleted"] = ["Completion filtering cannot be combined with cancelled todos."]
+            });
+        var items = await store.ListAsync(isCompleted, isCancelled == true, cancellationToken);
         return items.Select(ToResponse).ToArray();
     }
 
@@ -34,24 +38,35 @@ public sealed class TodoService(ITodoItemStore store, TimeProvider timeProvider)
         Validate(request.Title, request.Description, request.Priority, request.IsCompleted);
         var item = await store.GetAsync(id, cancellationToken);
         if (item is null) return null;
+        if (item.IsCancelled) throw new TodoConflictException("A cancelled todo cannot be updated.");
         item.Update(request.Title!, request.Description, request.Priority ?? TodoPriority.Normal,
             request.DueAtUtc?.UtcDateTime, request.IsCompleted!.Value, timeProvider.GetUtcNow().UtcDateTime);
         await store.SaveChangesAsync(cancellationToken);
         return ToResponse(item);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<bool> CancelAsync(Guid id, CancellationToken cancellationToken)
     {
         var item = await store.GetAsync(id, cancellationToken);
         if (item is null) return false;
-        store.Remove(item);
-        await store.SaveChangesAsync(cancellationToken);
+        if (!item.IsCancelled)
+        {
+            item.Cancel(timeProvider.GetUtcNow().UtcDateTime);
+            try
+            {
+                await store.SaveChangesAsync(cancellationToken);
+            }
+            catch (TodoConflictException) when (item.IsCancelled)
+            {
+                // Another request cancelled this row first; its timestamp is authoritative.
+            }
+        }
         return true;
     }
 
     private static TodoResponse ToResponse(TodoItem item) => new(
         item.Id, item.Title, item.Description, item.Priority, item.DueAtUtc, item.IsCompleted,
-        item.CompletedAtUtc, item.CreatedAtUtc, item.UpdatedAtUtc);
+        item.CompletedAtUtc, item.IsCancelled, item.CancelledAtUtc, item.CreatedAtUtc, item.UpdatedAtUtc);
 
     private static void Validate(string? title, string? description, TodoPriority? priority, bool? isCompleted = true)
     {

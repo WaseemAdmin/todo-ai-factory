@@ -27,6 +27,7 @@
         <button type="button" [class.active]="filter() === 'all'" [attr.aria-pressed]="filter() === 'all'" (click)="setFilter('all')">All</button>
         <button type="button" [class.active]="filter() === 'active'" [attr.aria-pressed]="filter() === 'active'" (click)="setFilter('active')">Active</button>
         <button type="button" [class.active]="filter() === 'completed'" [attr.aria-pressed]="filter() === 'completed'" (click)="setFilter('completed')">Completed</button>
+        <button type="button" [class.active]="filter() === 'cancelled'" [attr.aria-pressed]="filter() === 'cancelled'" (click)="setFilter('cancelled')">Cancelled</button>
       </div>
       <button type="button" class="refresh" (click)="reload()" [disabled]="loading()">Refresh</button>
     </div>

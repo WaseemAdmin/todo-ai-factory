@@ -25,4 +25,5 @@ public sealed class UpdateTodoRequest : TodoWriteRequest
 
 public sealed record TodoResponse(
     Guid Id, string Title, string? Description, TodoPriority Priority, DateTime? DueAtUtc,
-    bool IsCompleted, DateTime? CompletedAtUtc, DateTime CreatedAtUtc, DateTime UpdatedAtUtc);
+    bool IsCompleted, DateTime? CompletedAtUtc, bool IsCancelled, DateTime? CancelledAtUtc,
+    DateTime CreatedAtUtc, DateTime UpdatedAtUtc);

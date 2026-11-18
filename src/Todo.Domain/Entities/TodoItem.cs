@@ -13,6 +13,8 @@ public sealed class TodoItem
     public DateTime? DueAtUtc { get; private set; }
     public bool IsCompleted { get; private set; }
     public DateTime? CompletedAtUtc { get; private set; }
+    public bool IsCancelled { get; private set; }
+    public DateTime? CancelledAtUtc { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime UpdatedAtUtc { get; private set; }
 
@@ -28,6 +30,8 @@ public sealed class TodoItem
 
     public void Update(string title, string? description, TodoPriority priority, DateTime? dueAtUtc, bool isCompleted, DateTime nowUtc)
     {
+        if (IsCancelled)
+            throw new InvalidOperationException("A cancelled todo cannot be updated.");
         Validate(title, description, priority, dueAtUtc, nowUtc);
         Title = title.Trim();
         Description = description;
@@ -38,6 +42,16 @@ public sealed class TodoItem
             IsCompleted = isCompleted;
             CompletedAtUtc = isCompleted ? nowUtc : null;
         }
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public void Cancel(DateTime nowUtc)
+    {
+        if (IsCancelled) return;
+        if (nowUtc.Kind != DateTimeKind.Utc)
+            throw new ArgumentException("Dates must be UTC.", nameof(nowUtc));
+        IsCancelled = true;
+        CancelledAtUtc = nowUtc;
         UpdatedAtUtc = nowUtc;
     }
 

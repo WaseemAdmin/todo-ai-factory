@@ -27,6 +27,9 @@ namespace Todo.Infrastructure.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("CancelledAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("CompletedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -39,6 +42,12 @@ namespace Todo.Infrastructure.Data.Migrations
 
                     b.Property<DateTime?>("DueAtUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsCancelled")
+                        .ValueGeneratedOnAdd()
+                        .IsConcurrencyToken()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsCompleted")
                         .ValueGeneratedOnAdd()
@@ -57,6 +66,8 @@ namespace Todo.Infrastructure.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IsCancelled", "CreatedAtUtc");
 
                     b.HasIndex("IsCompleted", "CreatedAtUtc");
 
